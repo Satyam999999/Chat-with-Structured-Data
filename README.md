@@ -12,8 +12,8 @@ A natural-language interface for querying tabular data via SQL, powered by Groq 
 
 ## Screenshots
 
-![Query Interface](screenshot_query_1790870282230.jpg)
-![Query Results](screenshot_results_1790870367618.jpg)
+![Query Interface](images/screenshot_query_1790870282230.jpg)
+![Query Results](images/screenshot_results_1790870367618.jpg)
 
 ## Database Schema (3NF)
 

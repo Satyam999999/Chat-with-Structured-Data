@@ -19,8 +19,8 @@ def generate_messy_data():
     # Introduce messy duplicates
     customers = pd.concat([customers, customers.sample(5)]).sample(frac=1).reset_index(drop=True)
     
-    customers.to_csv('customers.csv', index=False)
-    print("Created customers.csv")
+    customers.to_csv('data/customers.csv', index=False)
+    print("Created data/customers.csv")
 
     # 2. Products
     products = pd.DataFrame({
@@ -30,8 +30,8 @@ def generate_messy_data():
         'price': [str(round(random.uniform(10.0, 500.0), 2)) + ("" if random.random() > 0.1 else " USD") for _ in range(20)] # Some strings with " USD"
     })
     
-    products.to_csv('products.csv', index=False)
-    print("Created products.csv")
+    products.to_csv('data/products.csv', index=False)
+    print("Created data/products.csv")
 
     # 3. Orders
     order_ids = range(1, 501)
@@ -52,8 +52,8 @@ def generate_messy_data():
         axis=1
     )
     
-    orders.to_csv('orders.csv', index=False)
-    print("Created orders.csv")
+    orders.to_csv('data/orders.csv', index=False)
+    print("Created data/orders.csv")
 
 if __name__ == "__main__":
     generate_messy_data()
