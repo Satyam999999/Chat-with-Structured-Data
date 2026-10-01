@@ -1,39 +1,40 @@
 import os
-import sqlite3
 import pandas as pd
+from sqlalchemy import create_engine
+from sqlalchemy.exc import SQLAlchemyError
 from groq import Groq
 import re
 
 # Database Schema string for prompt
 SCHEMA_INFO = """
-Table: Customers
+Table: customers
 - customer_id (INTEGER PRIMARY KEY)
 - name (TEXT)
 - email (TEXT)
 - registration_date (TEXT, YYYY-MM-DD)
 
-Table: Products
+Table: products
 - product_id (INTEGER PRIMARY KEY)
 - name (TEXT)
 - category (TEXT)
 - price (REAL)
 
-Table: Orders
+Table: orders
 - order_id (INTEGER PRIMARY KEY)
-- customer_id (INTEGER, Foreign Key to Customers)
-- product_id (INTEGER, Foreign Key to Products)
+- customer_id (INTEGER, Foreign Key to customers)
+- product_id (INTEGER, Foreign Key to products)
 - order_date (TEXT, YYYY-MM-DD)
 - quantity (INTEGER)
 - total_amount (REAL)
 """
 
 SYSTEM_PROMPT = f"""
-You are an expert SQL assistant. Your task is to generate a SQLite query to answer the user's question based on the following schema:
+You are an expert SQL assistant. Your task is to generate a PostgreSQL query to answer the user's question based on the following schema:
 {SCHEMA_INFO}
 
 Rules:
 1. ONLY return the SQL query. Do not include markdown formatting like ```sql or explanations.
-2. The query must be a valid SQLite SELECT statement. Do not use INSERT, UPDATE, DELETE, DROP, etc.
+2. The query must be a valid PostgreSQL SELECT statement. Do not use INSERT, UPDATE, DELETE, DROP, etc.
 3. If the question cannot be answered using the given schema, return "ERROR: Cannot answer based on schema."
 """
 
@@ -62,7 +63,7 @@ def is_safe_query(query: str) -> bool:
             return False
     return True
 
-def ask_database(question: str, db_path: str = 'retail.db'):
+def ask_database(question: str):
     """
     Takes a natural language question, generates SQL via Groq, executes it, 
     and returns (sql_query, result_dataframe, error_message).
@@ -70,6 +71,10 @@ def ask_database(question: str, db_path: str = 'retail.db'):
     client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
     if not client.api_key:
         return None, None, "GROQ_API_KEY environment variable not set."
+        
+    db_url = os.environ.get("DATABASE_URL")
+    if not db_url:
+        return None, None, "DATABASE_URL environment variable not set."
 
     model = "openai/gpt-oss-120b"
 
@@ -97,11 +102,12 @@ def ask_database(question: str, db_path: str = 'retail.db'):
         if not is_safe_query(sql):
             return sql, None, "Unsafe query generated. Only SELECT is allowed."
             
-        conn = sqlite3.connect(db_path)
+        engine = create_engine(db_url)
         try:
-            df = pd.read_sql_query(sql, conn)
+            with engine.connect() as conn:
+                df = pd.read_sql_query(sql, conn)
             return sql, df, None
-        except sqlite3.Error as e:
+        except SQLAlchemyError as e:
             # Retry logic: feed error back
             error_msg = str(e)
             messages.append({"role": "assistant", "content": sql})
@@ -112,11 +118,12 @@ def ask_database(question: str, db_path: str = 'retail.db'):
             if not is_safe_query(sql_retry):
                 return sql_retry, None, "Unsafe query generated on retry."
                 
-            df = pd.read_sql_query(sql_retry, conn)
+            with engine.connect() as conn:
+                df = pd.read_sql_query(sql_retry, conn)
             return sql_retry, df, None
             
         finally:
-            conn.close()
+            engine.dispose()
             
     except Exception as e:
         return None, None, f"An unexpected error occurred: {str(e)}"

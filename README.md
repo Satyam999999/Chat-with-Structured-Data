@@ -1,14 +1,19 @@
 # Chat with Structured Data
 
-A natural-language interface for querying tabular data via SQL, powered by Groq LLMs and Streamlit.
+A natural-language interface for querying tabular data via SQL, powered by Groq LLMs, Next.js, and PostgreSQL.
 
 ## Components
 
-1. **Dataset & Schema**: A mock e-commerce dataset (`generate_data.py`) consisting of `Customers`, `Products`, and `Orders` tables.
-2. **ETL Pipeline**: (`etl.py`) Cleans the messy CSV data (handling nulls, fixing types, deduplication) and loads it into a normalized SQLite database (`retail.db`).
-3. **NL-to-SQL Engine**: (`nl2sql.py`) Takes natural language questions, uses Groq's LLM to generate SQL based on the schema, safely executes read-only queries, and handles errors with retry logic.
+1. **Dataset & Schema**: A mock e-commerce dataset (`generate_data.py`) consisting of `customers`, `products`, and `orders` tables.
+2. **ETL Pipeline**: (`etl.py`) Cleans the messy CSV data (handling nulls, fixing types, deduplication) and loads it into a normalized PostgreSQL database using SQLAlchemy.
+3. **NL-to-SQL Engine**: (`nl2sql.py`) Takes natural language questions, uses Groq's LLM to generate PostgreSQL based on the schema, safely executes read-only queries, and handles errors with retry logic.
 4. **Evaluation**: (`eval.py`) A test suite that runs predefined questions through the engine and verifies logic.
-5. **Dashboard**: (`app.py`) A Streamlit web interface to interact with the data, displaying SQL queries, tables, and auto-generated charts.
+5. **Dashboard**: (`app.py` / `api.py` & `frontend/`) A Next.js web interface and FastAPI backend to interact with the data, displaying SQL queries, tables, and auto-generated charts.
+
+## Screenshots
+
+![Query Interface](screenshot_query_1790870282230.jpg)
+![Query Results](screenshot_results_1790870367618.jpg)
 
 ## Database Schema (3NF)
 
@@ -22,9 +27,10 @@ A natural-language interface for querying tabular data via SQL, powered by Groq 
    ```bash
    pip install -r requirements.txt
    ```
-2. Set your Groq API Key (or input it directly in the Streamlit sidebar later):
+2. Set up your environment variables. You will need a Groq API Key, and a PostgreSQL database connection string. You can get a free managed PostgreSQL database in seconds from [Neon.tech](https://neon.tech) or [Supabase](https://supabase.com).
    ```bash
-   export GROQ_API_KEY="your-api-key-here"
+   export GROQ_API_KEY="your-groq-api-key"
+   export DATABASE_URL="postgresql://user:password@host/dbname"
    ```
 3. Generate the data and run the ETL pipeline:
    ```bash
@@ -35,14 +41,20 @@ A natural-language interface for querying tabular data via SQL, powered by Groq 
    ```bash
    python eval.py
    ```
-5. Launch the Streamlit dashboard:
+5. Run the FastAPI backend:
    ```bash
-   streamlit run app.py
+   uvicorn api:app --reload
    ```
+6. In a new terminal, launch the Next.js frontend:
+   ```bash
+   cd frontend
+   npm run dev
+   ```
+   Open `http://localhost:3000` in your browser.
 
 ## Running via Docker
 
-You can easily containerize and run the entire application using Docker. The ETL process runs automatically during the Docker build.
+You can easily containerize and run the entire application using Docker. The ETL process runs automatically during the Docker build (ensure you pass DATABASE_URL if ETL runs during build, or run ETL separately).
 
 1. Build the image:
    ```bash
@@ -50,9 +62,8 @@ You can easily containerize and run the entire application using Docker. The ETL
    ```
 2. Run the container:
    ```bash
-   docker run -p 8501:8501 -e GROQ_API_KEY="your-api-key-here" chat-with-data
+   docker run -p 8000:8000 -e GROQ_API_KEY="your-api-key-here" -e DATABASE_URL="postgresql://..." chat-with-data
    ```
-3. Open `http://localhost:8501` in your browser.
 
 ## Sample Questions
 Try these out in the dashboard:

@@ -1,5 +1,5 @@
 import pandas as pd
-import sqlite3
+from sqlalchemy import create_engine, text
 import logging
 import os
 
@@ -61,21 +61,31 @@ def run_etl():
     logging.info(f"Orders cleaning: dropped {order_pre - len(orders)} duplicate rows, fixed null quantities.")
 
     # Load
-    db_path = 'retail.db'
-    if os.path.exists(db_path):
-        os.remove(db_path)
+    db_url = os.environ.get("DATABASE_URL")
+    if not db_url:
+        logging.error("DATABASE_URL environment variable is not set. Cannot load data.")
+        return
         
-    conn = sqlite3.connect(db_path)
+    engine = create_engine(db_url)
     try:
-        customers.to_sql('Customers', conn, index=False, if_exists='replace')
-        products.to_sql('Products', conn, index=False, if_exists='replace')
-        orders.to_sql('Orders', conn, index=False, if_exists='replace')
+        # Use lowercase table names for PostgreSQL to avoid quoting issues
+        customers.to_sql('customers', engine, index=False, if_exists='replace', method='multi')
+        products.to_sql('products', engine, index=False, if_exists='replace', method='multi')
+        orders.to_sql('orders', engine, index=False, if_exists='replace', method='multi')
         
-        logging.info("Successfully loaded clean data into retail.db")
+        # Add primary keys and foreign keys for Postgres schema
+        with engine.begin() as con:
+            con.execute(text("ALTER TABLE customers ADD PRIMARY KEY (customer_id);"))
+            con.execute(text("ALTER TABLE products ADD PRIMARY KEY (product_id);"))
+            con.execute(text("ALTER TABLE orders ADD PRIMARY KEY (order_id);"))
+            con.execute(text("ALTER TABLE orders ADD CONSTRAINT fk_customer FOREIGN KEY (customer_id) REFERENCES customers(customer_id);"))
+            con.execute(text("ALTER TABLE orders ADD CONSTRAINT fk_product FOREIGN KEY (product_id) REFERENCES products(product_id);"))
+            
+        logging.info("Successfully loaded clean data into PostgreSQL database")
     except Exception as e:
         logging.error(f"Failed to load data to DB: {e}")
     finally:
-        conn.close()
+        engine.dispose()
         
 if __name__ == "__main__":
     run_etl()
